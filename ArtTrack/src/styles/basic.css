@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Mononoki&display=swap');
+
+:root{
+  --basic_black: #0F0F0F;
+  --basic_black_a: hsla(0, 0%, 6%, 0.2);
+  --basic_blue: #232D3F;
+  --basic_green: #005B41;
+  --basic_cyan: #008170;
+}
+
+*{ 
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Mononoki', monospace;
+  font-size: 1.5rem;
+}
+
+body {
+    background-color: var(--basic_blue);
+  }
+ 
+.header {
+    background-color: var(--basic_green);
+    text-align: right;
+    padding: 0.2em;
+    color: var(--basic_blue);
+    /* margin: 0.1em; */
+  }
+
+.main-container {
+  display: flex;
+  gap: 0.1em;
+  color: var(--basic_blue);
+  margin:  0.1em;
+}
+
+.canvas-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  width: 70vw;
+  height: 100vh;  
+
+}
+
+.sidebar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  width: 30vw;
+  height: 100vh;
+
+}
+
+.hdr {
+  padding: 0.2em;
+  
+  background-color: var(--basic_green);
+}
+
+.menu {
+  padding: 0.2em;
+  background-color: var(--basic_green);
+  height: 100vh;
+}
+
+.canvas {
+  padding: 0.2em;
+  background-color: var(--basic_green);
+  height: 100vh;
+}
