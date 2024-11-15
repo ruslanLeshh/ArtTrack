@@ -1,9 +1,11 @@
 import "../styles/basic.css"
+import {Link} from "react-router-dom";
 
 export default function Header() {
     return (
         <div className='header'>
-            <div>ArtTrack</div>
+            <Link to={'/login'}><div className='account pixel-corners'/></Link>
+            <Link to={'/'} className="link">ArtTrack</Link>
         </div>
     );
 }

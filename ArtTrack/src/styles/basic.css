@@ -21,8 +21,9 @@ body {
   }
  
 .header {
+    display: flex;
+    justify-content: space-between;
     background-color: var(--basic_green);
-    text-align: right;
     padding: 0.2em;
     color: var(--basic_blue);
     /* margin: 0.1em; */
@@ -55,7 +56,6 @@ body {
 
 .hdr {
   padding: 0.2em;
-  
   background-color: var(--basic_green);
 }
 
@@ -69,4 +69,58 @@ body {
   padding: 0.2em;
   background-color: var(--basic_green);
   height: 100vh;
+}
+
+.login-container{
+  justify-content:center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
+  width: 30%;
+  /* background-color: var(--basic_green); */
+  color: var(--basic_blue);
+  padding: 0.2em;
+}
+
+/* .label{
+  padding: 0.2em;
+  background-color: var(--basic_green);
+
+} */
+.input{
+  border:0;
+  background-color: var(--basic_green);
+  color: var(--basic_blue);
+  padding: 0.2em;
+}
+.input::placeholder{
+  color:var(--basic_black_a);
+}
+
+.button{
+  border:0;
+  background-color: var(--basic_green);
+  color: var(--basic_blue);
+  padding: 0.2em;
+  cursor: pointer;
+}
+
+.button:active {
+  background-color: var(--basic_black_a);
+}
+
+.link{
+  color: var(--basic_blue);
+  text-decoration: none;
+}
+
+.account {
+  margin: 0.1em;
+  width: 1em;
+  height: 1em;
+  background-color: var(--basic_blue);
+}
+
+.pixel-corners {
+  clip-path: circle(50%);
 }
