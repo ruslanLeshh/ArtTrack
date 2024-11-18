@@ -19,7 +19,7 @@ NUM_NEIGHBORS = 5
 IMAGE_SIZE = (224, 224)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s:%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(message)s')  # remove timestamp
 
 
 class FeatureExtractor:
@@ -73,6 +73,12 @@ def load_image_paths(directory: str) -> List[str]:
     return image_paths
 
 
+def normalize_vectors(vectors: np.ndarray) -> np.ndarray:
+    """normalize vectors to unit length"""
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    return vectors / norms
+
+
 def main():
     # load image paths
     user_image_paths = load_image_paths(USER_IMAGES_DIR)
@@ -96,10 +102,11 @@ def main():
         logging.error("no user images were processed successfully")
         sys.exit(1)
     user_vectors = np.vstack(user_vectors).astype('float32')
+    user_vectors = normalize_vectors(user_vectors)  # normalize user vectors
 
     # build faiss index
     dimension = user_vectors.shape[1]
-    index = faiss.IndexFlatL2(dimension)
+    index = faiss.IndexFlatIP(dimension)  # use inner product for cosine similarity
     index.add(user_vectors)
     logging.info(f"faiss index created with dimension {dimension}")
 
@@ -116,14 +123,16 @@ def main():
         logging.error("no new images were processed successfully")
         sys.exit(1)
     new_vectors = np.vstack(new_vectors).astype('float32')
+    new_vectors = normalize_vectors(new_vectors)  # normalize new vectors
 
     # search for nearest neighbors
     distances, indices = index.search(new_vectors, NUM_NEIGHBORS)
     for i, new_filename in enumerate(new_filenames):
         logging.info(f"nearest images to {new_filename}:")
-        for idx in indices[i]:
+        for similarity, idx in zip(distances[i], indices[i]):
             user_filename = user_filenames[idx]
-            logging.info(f" - {user_filename}")  # output nearest neighbor filename
+            percentage_similarity = ((similarity + 1) / 2) * 100  # map from [-1,1] to [0,100]
+            logging.info(f" - {user_filename}, similarity: {percentage_similarity:.2f}%")  # output with percentage
 
 
 if __name__ == "__main__":
