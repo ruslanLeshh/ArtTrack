@@ -109,6 +109,14 @@ body {
   cursor: pointer;
 }
 
+.button2{
+  border:0;
+  background-color: var(--basic_blue);
+  color: var(--basic_green);
+  padding: 0.2em;
+  cursor: pointer;
+}
+
 .button:active {
   background-color: var(--basic_black_a);
 }
