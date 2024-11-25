@@ -68,8 +68,6 @@ Session = sessionmaker(bind=engine)
 # from models.images import Images 
 
 
-
-
 app = FastAPI()
 origins = [
     "http://localhost:5173",  # Allow your React app to make requests

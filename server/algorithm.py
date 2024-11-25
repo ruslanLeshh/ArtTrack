@@ -115,7 +115,7 @@ def scan():
     index = faiss.IndexFlatIP(dimension)  # use inner product for cosine similarity
     index.add(user_vectors)
     logging.info(f"faiss index created with dimension {dimension}")
-    faiss.write_index(index, "user_vector_index.faiss")
+    # faiss.write_index(index, "user_vector_index.faiss")
 
     # extract features for new images
     new_vectors = []
