@@ -26,7 +26,7 @@ class FeatureExtractor:
     def __init__(self, device: torch.device = DEVICE):
         """initialize the feature extractor with a pre-trained model"""
         self.device = device
-        self.model = models.resnet50(pretrained=True)
+        self.model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
         self.model.fc = nn.Identity()  # remove the last layer
         self.model.to(self.device)
         self.model.eval()
@@ -65,11 +65,14 @@ def load_image_paths(directory: str) -> List[str]:
     :param directory: directory to search for images
     :return: list of image file paths
     """
-    supported_formats = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
+    
     image_paths = []
     for filename in os.listdir(directory):
-        if filename.lower().endswith(supported_formats):
-            image_paths.append(os.path.join(directory, filename))
+        file_path = os.path.join(directory, filename)
+        try:
+            with Image.open(file_path) as img:
+                image_paths.append(file_path)
+        except (IOError, ValueError): continue
     return image_paths
 
 
@@ -103,12 +106,15 @@ def main():
         sys.exit(1)
     user_vectors = np.vstack(user_vectors).astype('float32')
     user_vectors = normalize_vectors(user_vectors)  # normalize user vectors
-
+    # print("\nUSER VECTORS", user_vectors)
+    # print("\nUSER FILENAMES", user_filenames)
+    
     # build faiss index
     dimension = user_vectors.shape[1]
     index = faiss.IndexFlatIP(dimension)  # use inner product for cosine similarity
     index.add(user_vectors)
     logging.info(f"faiss index created with dimension {dimension}")
+    faiss.write_index(index, "user_vector_index.faiss")
 
     # extract features for new images
     new_vectors = []
@@ -124,6 +130,8 @@ def main():
         sys.exit(1)
     new_vectors = np.vstack(new_vectors).astype('float32')
     new_vectors = normalize_vectors(new_vectors)  # normalize new vectors
+    # print("\nNEW VECTORS", new_vectors)
+    # print("\nNEW FILENAMES", new_filenames)
 
     # search for nearest neighbors
     distances, indices = index.search(new_vectors, NUM_NEIGHBORS)

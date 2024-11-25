@@ -7,10 +7,13 @@ const { Pool } = require('pg');
 const sequelize = require('./sequelize');
 const Users = require('./models/users');
 const Images = require('./models/images');
+const Matches = require('./models/matches');
 
 const multer = require('multer'); // For handling file uploads
 const path = require('path');
 const fs = require('fs');
+
+
 
 // Initialize express app
 const app = express();
@@ -77,15 +80,10 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// (File upload logic) configuration for Multer
+// (File upload logic) configuration for Multer + one who uploads the file
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const userId = req.headers['user-id']; // Retrieve userId from headers
-        if (!userId) {
-            return cb(new Error('User ID is required'), null);
-        }
-
-        const uploadPath = path.join(__dirname, 'images', userId); // Define upload path
+        const uploadPath = path.join(__dirname, 'images', 'users-images');
         console.log("Destination path:", uploadPath);
 
         // Create directory if it does not exist
@@ -105,26 +103,22 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // API to handle image uploads
-app.post('/images/upload', upload.single('image'), async (req, res) => {
+app.post('/images/users-images', upload.single('image'), async (req, res) => {
     try {
         const userId = req.headers['user-id']; // Retrieve userId from headers
         if (!userId) {
             return res.status(400).json({ error: 'User ID is required' });
         }
-
-        const relativePath = path.join(userId, req.file.filename);
-        console.log("File uploaded:", relativePath);
-
-        // Save file path and user ID to the database
+        // Save filename and user ID to the database
         await Images.create({
             user_id: userId,
-            file_path: relativePath,
+            filename: req.file.filename,
         });
 
         res.status(201).json({
-            message: 'Image uploaded and metadata stored',
-            imagePath: relativePath,
-        });
+            message: 'Image table succesfully updated',
+            filename: req.file.filename,   // for front to display
+        }); 
     } catch (error) {
         console.error('Error handling upload:', error);
         res.status(500).json({ error: 'Server error while uploading image' });
@@ -139,14 +133,12 @@ app.get('/images/:userId', async (req, res) => {
             where: { user_id: userId }  // Find images by user ID
         });
 
-        // Extract image paths
-        const imagePaths = images.map(image => image.file_path);
+        const filenames = images.map(image => image.filename);
 
-        // Send the image paths as a response
-        res.json(imagePaths);
+        res.json(filenames); // Send filenames as a response
     } catch (err) {
-        console.error(err);
-        res.status(500).send('Error fetching images');
+        console.error('Error fetching images:', err);
+        res.status(500).json({ error: 'Error fetching images' });
     }
 });
 

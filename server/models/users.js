@@ -16,6 +16,9 @@ const Users = sequelize.define('Users', {
     type: DataTypes.STRING(255),
     allowNull: false,
   },
+  
+},  {
+  timestamps: false, // Disable createdAt and updatedAt
 });
 
 module.exports = Users;

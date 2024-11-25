@@ -8,10 +8,12 @@ const Images = sequelize.define('Images', {
     primaryKey: true,
     autoIncrement: true,
   },
-  file_path: {
+  filename: {
     type: DataTypes.STRING,
     allowNull: false,
   },
+},   {
+  timestamps: false, // Disable createdAt and updatedAt
 });
 
 Images.belongsTo(Users, {

@@ -1,0 +1,5 @@
+__version__ = '0.15.0+cpu'
+git_version = '0ca07353c82c0b8bbe1552dd871960b72d00cb62'
+from torchvision.extension import _check_cuda_version
+if _check_cuda_version() > 0:
+    cuda = _check_cuda_version()
