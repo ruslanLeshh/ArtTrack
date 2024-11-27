@@ -1,0 +1,20 @@
+Content-Length: 26951
+Date: Wed, 27 Nov 2024 16:41:12 GMT
+Server: mw-web.eqiad.main-67876799fc-fdx2v
+X-Content-Type-Options: nosniff
+Content-Language: en
+Accept-Ch: 
+Vary: Accept-Encoding,Cookie,Authorization
+Last-Modified: Wed, 27 Nov 2024 09:13:04 GMT
+Content-Type: text/html; charset=UTF-8
+Content-Encoding: gzip
+Age: 326
+X-Cache: cp3067 miss, cp3067 hit/4
+X-Cache-Status: hit-front
+Server-Timing: cache;desc="hit-front", host;desc="cp3067"
+Strict-Transport-Security: max-age=106384710; includeSubDomains; preload
+Report-To: { "group": "wm_nel", "max_age": 604800, "endpoints": [{ "url": "https://intake-logging.wikimedia.org/v1/events?stream=w3c.reportingapi.network_error&schema_uri=/w3c/reportingapi/network_error/1.0.0" }] }
+Nel: { "report_to": "wm_nel", "max_age": 604800, "failure_fraction": 0.05, "success_fraction": 0.0}
+X-Client-Ip: 45.12.26.16
+Cache-Control: private, s-maxage=0, max-age=0, must-revalidate, no-transform
+Accept-Ranges: bytes
