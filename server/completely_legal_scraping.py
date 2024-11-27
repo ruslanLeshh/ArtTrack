@@ -1,198 +1,235 @@
-import os
-import sys
-import requests
-import logging
-from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urljoin
-from PIL import Image
-from io import BytesIO
-from typing import List, Dict
+import os  
+import sys 
+import csv
+import logging  
+from dataclasses import dataclass, asdict  
+from typing import List, Dict, Optional  
+from concurrent.futures import ThreadPoolExecutor, as_completed  
+import requests  
+from urllib.parse import urlencode  
+from PIL import Image  
+from io import BytesIO  
 
-# Configuration
-DOWNLOAD_DIR = 'server/absolutely_legal_downloaded_images'
-METADATA_FILE = 'image_metadata.csv'
+
+
+DOWNLOAD_DIR = 'server/absolutely_legal_downloaded_images'  
+METADATA_FILE = 'image_metadata.csv'  # CSV file to store image metadata
 COMPRESSION_QUALITY = 85  # JPEG quality for compression (1-95)
-MAX_WORKERS = 8  # Number of threads for concurrent downloads
-MAX_IMAGES = 10  # Maximum number of images to download
-CATEGORY = 'Featured pictures on Wikimedia Commons'  # Category to download images from
-LICENSES = ['CC BY-SA 4.0', 'CC BY 4.0', 'Public domain']  # Acceptable licenses
 
-# User-Agent configuration
-USER_AGENT = 'ArtTrack/1.0 (https://arttrack.com/; arttrack@gmail.com)'
+MAX_WORKERS = 8  # number of threads for concurrent downloads
+MAX_IMAGES = 50  # maximum number of images to download
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+CATEGORY = 'Featured pictures on Wikimedia Commons'  # category to download images from
+LICENSES = ['CC BY-SA 4.0', 'CC BY 4.0', 'Public domain']  # acceptable licenses
+USER_AGENT = 'ArtTrackImageDownloader/1.0 (https://arttrack.com/; arttrack@gmail.com)'  # compliant user-agent
 
 
-def get_image_pages(session: requests.Session, cmcontinue: str = None) -> Dict:
-    """
-    Retrieve image pages from a specific category using the MediaWiki API.
-
-    :param session: requests.Session object
-    :param cmcontinue: Continue token for pagination
-    :return: API response as a dictionary
-    """
-    params = {
-        'action': 'query',
-        'format': 'json',
-        'list': 'categorymembers',
-        'cmtitle': f'Category:{CATEGORY}',
-        'cmtype': 'file',
-        'cmlimit': 'max',
-    }
-    if cmcontinue:
-        params['cmcontinue'] = cmcontinue
-
-    response = session.get('https://commons.wikimedia.org/w/api.php', params=params)
-    response.raise_for_status()
-    return response.json()
+# configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'  # detailed logging format
+)
 
 
-def get_image_info(session: requests.Session, titles: List[str]) -> Dict:
-    """
-    Retrieve detailed image information, including URLs and metadata.
-
-    :param session: requests.Session object
-    :param titles: List of image titles
-    :return: API response as a dictionary
-    """
-    params = {
-        'action': 'query',
-        'format': 'json',
-        'prop': 'imageinfo',
-        'titles': '|'.join(titles),
-        'iiprop': 'url|user|extmetadata',
-        'iiurlwidth': 800,  # Adjust if you want a specific width
-    }
-
-    # Properly encode the parameters
-    url = 'https://commons.wikimedia.org/w/api.php'
-    response = session.get(url, params=params)
-    response.raise_for_status()
-    return response.json()
+@dataclass
+class ImageMetadata:
+    """dataclass to store metadata for each image"""
+    title: str
+    url: str
+    descriptionurl: str
+    user: str
+    license: str
+    attribution: str
+    local_path: Optional[str] = None  # path where the image is saved
 
 
-def fetch_images(session: requests.Session) -> List[Dict]:
-    """
-    Fetch image metadata from Wikimedia Commons.
+class WikimediaImageDownloader:
+    """class to handle downloading images from Wikimedia Commons using the MediaWiki API"""
 
-    :param session: requests.Session object
-    :return: List of image metadata dictionaries
-    """
-    images = []
-    cmcontinue = None
+    def __init__(self):
+        self.session = requests.Session()  # session for persistent connections
+        self.session.headers.update({'User-Agent': USER_AGENT})  # set user-agent for all requests
+        self.images: List[ImageMetadata] = []  # list to store image metadata
 
-    while len(images) < MAX_IMAGES:
-        data = get_image_pages(session, cmcontinue)
-        pages = data.get('query', {}).get('categorymembers', [])
-        titles = [page['title'] for page in pages if page['ns'] == 6]  # Namespace 6 is for files
+    def fetch_image_titles(self, cmcontinue: Optional[str] = None) -> Dict:
+        """fetch image titles from the specified category using the MediaWiki API
+        :param cmcontinue: continuation token for pagination
+        :return: JSON response from the API
+        """
+        params = {
+            'action': 'query',
+            'format': 'json',
+            'list': 'categorymembers',
+            'cmtitle': f'Category:{CATEGORY}',
+            'cmtype': 'file',
+            'cmlimit': 'max',
+        }
+        if cmcontinue:
+            params['cmcontinue'] = cmcontinue  # add continuation token if present
 
-        if not titles:
-            break
+        try:
+            response = self.session.get('https://commons.wikimedia.org/w/api.php', params=params)  # make GET request
+            response.raise_for_status()  # raise exception for HTTP errors
+            return response.json()  # return JSON response
+        except requests.RequestException as e:
+            logging.error(f"error fetching image titles: {e}")  # log any request exceptions
+            return {}
 
-        # Split titles into batches to avoid exceeding URL length limits
-        batch_size = 10  # Adjust as needed
-        for i in range(0, len(titles), batch_size):
-            batch_titles = titles[i:i + batch_size]
-            # Retrieve image info
-            info_data = get_image_info(session, batch_titles)
-            pages_info = info_data.get('query', {}).get('pages', {})
+    def fetch_image_info(self, titles: List[str]) -> Dict:
+        """fetch detailed image information for a batch of titles
+        :param titles: list of image titles
+        :return: JSON response from the API
+        """
+        params = {
+            'action': 'query',
+            'format': 'json',
+            'prop': 'imageinfo',
+            'titles': '|'.join(titles),
+            'iiprop': 'url|user|extmetadata',
+            'iiurlwidth': 800,  # specify desired image width
+        }
 
-            for page_id, page in pages_info.items():
-                imageinfo = page.get('imageinfo', [])
-                if not imageinfo:
-                    continue
-                info = imageinfo[0]
-                extmetadata = info.get('extmetadata', {})
-                license_short_name = extmetadata.get('LicenseShortName', {}).get('value', '')
+        try:
+            response = self.session.get('https://commons.wikimedia.org/w/api.php', params=params)  # make GET request
+            response.raise_for_status()  # raise exception for HTTP errors
+            return response.json()  # return JSON response
+        except requests.RequestException as e:
+            logging.error(f"error fetching image info for titles {titles}: {e}")  # log any request exceptions
+            return {}
 
-                if LICENSES and license_short_name not in LICENSES:
-                    continue  # Skip images without acceptable licenses
+    def process_api_response(self, data: Dict):
+        """process the API response and extract image metadata
+        :param data: JSON response from the API
+        """
+        pages = data.get('query', {}).get('pages', {})  # extract pages from response
 
-                image_data = {
-                    'title': page.get('title'),
-                    'url': info.get('url'),
-                    'descriptionurl': info.get('descriptionurl'),
-                    'user': info.get('user'),
-                    'license': license_short_name,
-                    'attribution': extmetadata.get('Attribution', {}).get('value', ''),
-                }
-                images.append(image_data)
-                if len(images) >= MAX_IMAGES:
-                    break
+        for page_id, page in pages.items():
+            imageinfo = page.get('imageinfo', [])
+            if not imageinfo:
+                continue  # skip if no imageinfo present
 
-            if len(images) >= MAX_IMAGES:
-                break
+            info = imageinfo[0]
+            extmetadata = info.get('extmetadata', {})
+            license_short_name = extmetadata.get('LicenseShortName', {}).get('value', '')
 
-        cmcontinue = data.get('continue', {}).get('cmcontinue')
-        if not cmcontinue:
-            break
+            if LICENSES and license_short_name not in LICENSES:
+                continue  # skip images with unacceptable licenses
 
-    return images
+            metadata = ImageMetadata(
+                title=page.get('title', ''),
+                url=info.get('url', ''),
+                descriptionurl=info.get('descriptionurl', ''),
+                user=info.get('user', ''),
+                license=license_short_name,
+                attribution=extmetadata.get('Attribution', {}).get('value', '')
+            )
+            self.images.append(metadata)  # add to images list
 
+            if len(self.images) >= MAX_IMAGES:
+                break  # stop if maximum number of images reached
 
-def download_and_save_image(image_data: Dict):
-    """
-    Download and save an image, compressing it if necessary.
+    def fetch_images(self):
+        """fetch image metadata by iterating through API responses until MAX_IMAGES is reached"""
+        cmcontinue = None
 
-    :param image_data: Dictionary containing image metadata
-    """
-    url = image_data['url']
-    filename = os.path.basename(url)
-    local_path = os.path.join(DOWNLOAD_DIR, filename)
+        while len(self.images) < MAX_IMAGES:
+            data = self.fetch_image_titles(cmcontinue)  # fetch image titles
+            if not data:
+                break  # exit if no data returned
 
-    try:
-        response = requests.get(url, headers={'User-Agent': USER_AGENT})
-        response.raise_for_status()
-        image = Image.open(BytesIO(response.content))
-        image = image.convert('RGB')  # Ensure compatibility
-        image.save(local_path, 'JPEG', quality=COMPRESSION_QUALITY)
-        logging.info(f"Downloaded {filename}")
-        image_data['local_path'] = local_path
-    except Exception as e:
-        logging.error(f"Failed to download {url}: {e}")
-        image_data['local_path'] = None
+            pages = data.get('query', {}).get('categorymembers', [])
+            titles = [page['title'] for page in pages if page['ns'] == 6]  # namespace 6 for files
 
+            if not titles:
+                break  # exit if no titles found
 
-def save_metadata(images: List[Dict]):
-    """
-    Save image metadata to a CSV file.
+            # batch titles to avoid exceeding URL length limits
+            batch_size = 10  # number of titles per batch
+            for i in range(0, len(titles), batch_size):
+                batch_titles = titles[i:i + batch_size]
+                info_data = self.fetch_image_info(batch_titles)  # fetch image info for the batch
+                if not info_data:
+                    continue  # skip if no data returned
+                self.process_api_response(info_data)  # process the API response
 
-    :param images: List of image metadata dictionaries
-    """
-    import csv
+                if len(self.images) >= MAX_IMAGES:
+                    break  # stop if maximum number of images reached
 
-    fieldnames = ['title', 'url', 'descriptionurl', 'user', 'license', 'attribution', 'local_path']
-    with open(METADATA_FILE, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        for image_data in images:
-            writer.writerow(image_data)
-    logging.info(f"Metadata saved to {METADATA_FILE}")
+            cmcontinue = data.get('continue', {}).get('cmcontinue')  # get continuation token
+            if not cmcontinue:
+                break  # exit if no more pages
 
+    def download_image(self, image: ImageMetadata):
+        """download and save a single image, then update its local_path
+        :param image: ImageMetadata object containing image details
+        """
+        try:
+            response = self.session.get(image.url, timeout=10)  # download image with timeout
+            response.raise_for_status()  # raise exception for HTTP errors
 
-def main():
-    if not os.path.exists(DOWNLOAD_DIR):
-        os.makedirs(DOWNLOAD_DIR)
+            image_content = response.content  # get image bytes
+            img = Image.open(BytesIO(image_content))  # open image
+            img = img.convert('RGB')  # convert to RGB to ensure compatibility
 
-    session = requests.Session()
-    session.headers.update({'User-Agent': USER_AGENT})  # Set the User-Agent header
+            local_filename = os.path.basename(image.url)  # extract filename from URL
+            local_path = os.path.join(DOWNLOAD_DIR, local_filename)  # define local path
 
-    images = fetch_images(session)
+            img.save(local_path, 'JPEG', quality=COMPRESSION_QUALITY)  # save and compress image
+            image.local_path = local_path  # update metadata with local path
 
-    if not images:
-        logging.error("No images found.")
-        sys.exit(1)
+            logging.info(f"downloaded {local_filename}")  # log successful download
+        except Exception as e:
+            logging.error(f"failed to download {image.url}: {e}")  # log any download errors
+            image.local_path = None  # mark as failed
 
-    logging.info(f"Found {len(images)} images. Starting download...")
+    def download_all_images(self):
+        """download all images concurrently using ThreadPoolExecutor"""
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # submit all download tasks
+            future_to_image = {executor.submit(self.download_image, image): image for image in self.images}
+            for future in as_completed(future_to_image):
+                image = future_to_image[future]
+                if image.local_path:
+                    continue  # already handled in download_image
+                else:
+                    logging.warning(f"image {image.title} was not downloaded successfully")  # log if not downloaded
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        executor.map(download_and_save_image, images)
+    def save_metadata_to_csv(self):
+        """save all image metadata to a CSV file"""
+        try:
+            with open(METADATA_FILE, 'w', newline='', encoding='utf-8') as csvfile:  # open CSV file
+                fieldnames = ['title', 'url', 'descriptionurl', 'user', 'license', 'attribution', 'local_path']  # define headers
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()  # write header row
 
-    # Save metadata
-    save_metadata(images)
+                for image in self.images:
+                    writer.writerow(asdict(image))  # write image metadata as a row
 
-    logging.info("All tasks completed.")
+            logging.info(f"metadata saved to {METADATA_FILE}")  # log successful save
+        except Exception as e:
+            logging.error(f"failed to save metadata to CSV: {e}")  # log any errors during save
+
+    def run(self):
+        """execute the full image downloading and metadata saving process"""
+        if not os.path.exists(DOWNLOAD_DIR):
+            os.makedirs(DOWNLOAD_DIR)  # create download directory if it doesn't exist
+
+        logging.info(f"starting image fetch for category: {CATEGORY}")  # log start of fetching
+        self.fetch_images()
+
+        if not self.images:
+            logging.error("no images found to download")  # log if no images found
+            sys.exit(1)  # exit script with error
+
+        logging.info(f"found {len(self.images)} images. starting download...")  # log number of images found
+        self.download_all_images()  # download all images concurrently
+
+        logging.info("all downloads completed. saving metadata...")  # log completion of downloads
+        self.save_metadata_to_csv() 
+
+        logging.info("process completed successfully")  # log successful completion
 
 
 if __name__ == "__main__":
-    main()
+    downloader = WikimediaImageDownloader()  
+    downloader.run()  
