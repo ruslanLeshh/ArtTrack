@@ -9,7 +9,7 @@ import requests
 from urllib.parse import urlencode  
 from PIL import Image  
 from io import BytesIO  
-
+ 
 
 DOWNLOAD_DIR = 'images/internet-images'  
 METADATA_FILE = 'absolutely_legal_metadata.csv'  # CSV file to store image metadata

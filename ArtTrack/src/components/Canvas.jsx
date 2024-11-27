@@ -1,6 +1,6 @@
 import "../styles/basic.css"
 import { useState, useEffect } from 'react';
-
+ 
 export default function Canvas() {
     const [filenames, setFilenames] = useState([]); // Renamed to filenames
     const UserId = localStorage.getItem("userId");

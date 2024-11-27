@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Mononoki&display=swap');
+/* Importing the Mononoki font from Google Fonts for a monospace typography style */
 
 :root{
   --basic_black: #0F0F0F;
@@ -7,6 +8,7 @@
   --basic_green: #005B41;
   --basic_cyan: #008170;
 }
+/* Declaring CSS variables for consistent color usage throughout the stylesheet */
 
 *{ 
   box-sizing: border-box;
@@ -15,19 +17,21 @@
   font-family: 'Mononoki', monospace;
   font-size: 1.5rem;
 }
+/* Applying a global reset for box-sizing, margins, and paddings, and setting a default font and size */
 
 body {
     background-color: var(--basic_blue);
-  }
- 
+}
+/* Setting a background color for the body */
+
 .header {
     display: flex;
     justify-content: space-between;
     background-color: var(--basic_green);
     padding: 0.2em;
     color: var(--basic_blue);
-    /* margin: 0.1em; */
-  }
+}
+/* Styling a flexible header with space-between alignment, padding, and contrasting text color */
 
 .main-container {
   display: flex;
@@ -35,14 +39,15 @@ body {
   color: var(--basic_blue);
   margin:  0.1em;
 }
+/* Main container with a horizontal layout and a small gap between elements */
 
 .canvas-container {
   display: flex;
   flex-direction: column;
   gap: 0.2em;
   width: 70vw;
-  /* height: 100vh;   */
 }
+/* A container for the main canvas area taking up 70% of the viewport width */
 
 .sidebar-container {
   display: flex;
@@ -50,10 +55,10 @@ body {
   gap: 0.2em;
   width: 30vw;
   height: 100vh;
-
 }
+/* Sidebar taking up 30% of the viewport width and full height */
 
-.hdr {
+.hdr, .menu {
   padding: 0.2em;
   background-color: var(--basic_green);
 }
@@ -67,64 +72,63 @@ body {
 .canvas {
   display: flex;
   flex-wrap: wrap;
-  align-content:flex-start;
-  align-items:center;
+  align-content: flex-start;
+  align-items: center;
   padding: 0.1em;
   background-color: var(--basic_green);
   height: 100%;  
   gap: 0.1em;
 }
+/* Canvas area styled for flexible item wrapping, centered alignment, and green background */
 
-.login-container{
-  justify-content:center;
+.login-container {
+  justify-content: center;
   display: flex;
   flex-direction: column;
   gap: 0.1em;
   width: 30%;
-  /* background-color: var(--basic_green); */
   color: var(--basic_blue);
   padding: 0.2em;
 }
+/* A container for the login form, centered and styled with gaps and padding */
 
-/* .label{
-  padding: 0.2em;
-  background-color: var(--basic_green);
-
-} */
-.input{
-  border:0;
+.input {
+  border: 0;
   background-color: var(--basic_green);
   color: var(--basic_blue);
   padding: 0.2em;
 }
-.input::placeholder{
-  color:var(--basic_black_a);
+.input::placeholder {
+  color: var(--basic_black_a);
 }
+/* Input fields with no border, green background, and blue text. Placeholder text is semi-transparent black */
 
-.button{
-  border:0;
+.button {
+  border: 0;
   background-color: var(--basic_green);
   color: var(--basic_blue);
   padding: 0.2em;
   cursor: pointer;
 }
+.button:active {
+  background-color: var(--basic_black_a);
+}
+/* Button styles with green background, blue text, and an active state changing to semi-transparent black */
 
-.button2{
-  border:0;
+.button2 {
+  border: 0;
   background-color: var(--basic_blue);
   color: var(--basic_green);
   padding: 0.2em;
   cursor: pointer;
 }
+/* Alternative button style with blue background and green text */
 
-.button:active {
-  background-color: var(--basic_black_a);
-}
-
-.link{
+.link {
   color: var(--basic_blue);
   text-decoration: none;
 }
+/* Links styled with a blue color and no underline */
 
 .account {
   margin: 0.1em;
@@ -132,17 +136,19 @@ body {
   height: 1em;
   background-color: var(--basic_blue);
 }
+/* Account avatar with a fixed size and blue background */
 
 .pixel-corners {
   clip-path: circle(50%);
 }
+/* Circular clipping for elements, commonly used for round avatars or buttons */
 
-.upload{
+.upload {
   width: 6em; 
   height: 6em;
   background-color: var(--basic_blue);
   color: var(--basic_green);
-  border:0;
+  border: 0;
   cursor: pointer;
 }
 
@@ -158,12 +164,11 @@ body {
 }
 
 
-.img{
-  max-width:6em;
-  max-height:6em;
+.img {
+  max-width: 6em;
+  max-height: 6em;
   width: auto;
   height: auto;
   cursor: pointer;
-
 }
-
+/* Image styles to maintain aspect ratio within a 6em limit, ensuring responsive scaling */
