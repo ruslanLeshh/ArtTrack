@@ -3,7 +3,7 @@ import sys
 import csv
 import logging  
 from dataclasses import dataclass, asdict  
-from typing import List, Dict, Optional  
+from typing import List, Dict, Optional, Set  
 from concurrent.futures import ThreadPoolExecutor, as_completed  
 import requests  
 from urllib.parse import urlencode  
@@ -11,13 +11,12 @@ from PIL import Image
 from io import BytesIO  
 
 
-
 DOWNLOAD_DIR = 'server/absolutely_legal_downloaded_images'  
-METADATA_FILE = 'image_metadata.csv'  # CSV file to store image metadata
+METADATA_FILE = 'server/absolutely_legal_metadata.csv'  # CSV file to store image metadata
 COMPRESSION_QUALITY = 85  # JPEG quality for compression (1-95)
 
 MAX_WORKERS = 8  # number of threads for concurrent downloads
-MAX_IMAGES = 50  # maximum number of images to download
+MAX_IMAGES = 10  # maximum number of images to download
 
 CATEGORY = 'Featured pictures on Wikimedia Commons'  # category to download images from
 LICENSES = ['CC BY-SA 4.0', 'CC BY 4.0', 'Public domain']  # acceptable licenses
@@ -50,6 +49,22 @@ class WikimediaImageDownloader:
         self.session = requests.Session()  # session for persistent connections
         self.session.headers.update({'User-Agent': USER_AGENT})  # set user-agent for all requests
         self.images: List[ImageMetadata] = []  # list to store image metadata
+        self.downloaded_titles: Set[str] = set()  # set to store titles of already downloaded images
+        self.load_existing_metadata()  # load metadata if it exists
+
+    def load_existing_metadata(self):
+        """load existing metadata from CSV to avoid re-downloading images"""
+        if os.path.exists(METADATA_FILE):
+            try:
+                with open(METADATA_FILE, 'r', newline='', encoding='utf-8') as csvfile:  # open CSV file
+                    reader = csv.DictReader(csvfile)  # create CSV reader
+                    for row in reader:
+                        self.downloaded_titles.add(row['title'])  # add title to the set
+                logging.info(f"loaded {len(self.downloaded_titles)} already downloaded images from metadata")  # log count
+            except Exception as e:
+                logging.error(f"failed to load existing metadata: {e}")  # log any errors
+        else:
+            logging.info("no existing metadata found, starting fresh")  # log if no metadata exists
 
     def fetch_image_titles(self, cmcontinue: Optional[str] = None) -> Dict:
         """fetch image titles from the specified category using the MediaWiki API
@@ -115,8 +130,13 @@ class WikimediaImageDownloader:
             if LICENSES and license_short_name not in LICENSES:
                 continue  # skip images with unacceptable licenses
 
+            title = page.get('title', '')
+            if title in self.downloaded_titles:
+                logging.info(f"skipping already downloaded image: {title}")  # log skipped image
+                continue  # skip already downloaded images
+
             metadata = ImageMetadata(
-                title=page.get('title', ''),
+                title=title,
                 url=info.get('url', ''),
                 descriptionurl=info.get('descriptionurl', ''),
                 user=info.get('user', ''),
@@ -171,8 +191,39 @@ class WikimediaImageDownloader:
             img = Image.open(BytesIO(image_content))  # open image
             img = img.convert('RGB')  # convert to RGB to ensure compatibility
 
+            # smart compression to ensure image size does not exceed 0.5 MB
+            target_size = 500000  # target size in bytes (0.5 MB)
+            buffer = BytesIO()
+            img.save(buffer, format='JPEG', quality=COMPRESSION_QUALITY)  # initial save
+            size = buffer.tell()  # current size
+
+            if size > target_size:
+                # calculate scaling factor
+                scale_factor = (target_size / size) ** 0.5  # approximate scaling factor
+                new_width = max(1, int(img.width * scale_factor))  # ensure width is at least 1
+                new_height = max(1, int(img.height * scale_factor))  # ensure height is at least 1
+                img = img.resize((new_width, new_height), Image.ANTIALIAS)  # resize image
+
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=COMPRESSION_QUALITY)  # save resized image
+                size = buffer.tell()
+
+                # adjust quality if still larger
+                if size > target_size:
+                    quality = max(int(COMPRESSION_QUALITY * (target_size / size)), 10)  # calculate new quality
+                    buffer = BytesIO()
+                    img.save(buffer, format='JPEG', quality=quality)  # save with adjusted quality
+
+            buffer.seek(0)
+            img = Image.open(buffer)  # reopen image from buffer
+
             local_filename = os.path.basename(image.url)  # extract filename from URL
             local_path = os.path.join(DOWNLOAD_DIR, local_filename)  # define local path
+
+            if os.path.exists(local_path):
+                logging.info(f"image already exists, skipping download: {local_filename}")  # log existing image
+                image.local_path = local_path  # set existing path
+                return  # skip downloading
 
             img.save(local_path, 'JPEG', quality=COMPRESSION_QUALITY)  # save and compress image
             image.local_path = local_path  # update metadata with local path
@@ -190,7 +241,7 @@ class WikimediaImageDownloader:
             for future in as_completed(future_to_image):
                 image = future_to_image[future]
                 if image.local_path:
-                    continue  # already handled in download_image
+                    self.downloaded_titles.add(image.title)  # add to downloaded titles
                 else:
                     logging.warning(f"image {image.title} was not downloaded successfully")  # log if not downloaded
 
