@@ -5,5 +5,5 @@ const sequelize = new Sequelize('postgres://postgres:pg13@localhost:5432/postgre
   dialect: 'postgres',
   logging: false,  // Disable logging (optional)
 });
-
+ 
 module.exports = sequelize;
