@@ -142,5 +142,47 @@ app.get('/images/:userId', async (req, res) => {
     }
 });
 
+// app.get('/images/matches', async (req, res) => {
+//     const userId = req.headers['user-id'];
+//     try {
+//         const images = await Images.findAll({
+//             where: { user_id: userId },  // Filter Images by user_id
+//         });
+
+//         if (!images.length) {
+//             return res.status(404).json({ message: 'No images found for the user.' });
+//         }
+
+//         const matches = await Matches.findAll({
+//             include: [{
+//                 model: Images,  // Include the Images model to link Matches to Images
+//                 where: {
+//                     image_id: {
+//                         [Op.in]: images.map(image => image.id)  // Check if image_id matches one of the user's image IDs
+//                     }
+//                 }
+//             }]
+//         });
+
+//         if (!matches.length) {
+//             return res.status(404).json({ message: 'No matches found.' });
+//         }
+
+//         const matchResults = matches.map(match => ({
+//             match_id: match.match_id,
+//             similarity_score: match.similarity_score,
+//             new_image_filename: match.new_image_filename, // Get the filename from the included Image model
+//             matched_image_filename: match.matched_image_filename,
+//         }));
+
+//         // Step 4: Respond with the matches data including new_image_filename
+//         res.json({ matches: matchResults });
+
+//     } catch (error) {
+//         console.error('Error fetching matches:', error);
+//         res.status(500).json({ error: 'An error occurred while fetching matches.' });
+//     }
+// });
+
 // Start the Express server
 app.listen(5000, () => console.log('Server running on http://localhost:5000'));

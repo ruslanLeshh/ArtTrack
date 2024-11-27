@@ -59,7 +59,7 @@ body {
 }
 
 .menu {
-  padding: 0.2em;
+  padding: 0.1em;
   background-color: var(--basic_green);
   height: 100%;
 }
@@ -145,6 +145,18 @@ body {
   border:0;
   cursor: pointer;
 }
+
+
+.scan-btn{
+  width: 100%;
+  min-height: 0.2em;
+  background-color: var(--basic_blue);
+  color: var(--basic_green);
+  border:0;
+  cursor: pointer;
+  
+}
+
 
 .img{
   max-width:6em;

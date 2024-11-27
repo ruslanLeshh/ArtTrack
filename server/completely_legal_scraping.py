@@ -11,8 +11,8 @@ from PIL import Image
 from io import BytesIO  
 
 
-DOWNLOAD_DIR = 'server/absolutely_legal_downloaded_images'  
-METADATA_FILE = 'server/absolutely_legal_metadata.csv'  # CSV file to store image metadata
+DOWNLOAD_DIR = 'images/internet-images'  
+METADATA_FILE = 'absolutely_legal_metadata.csv'  # CSV file to store image metadata
 COMPRESSION_QUALITY = 85  # JPEG quality for compression (1-95)
 
 MAX_WORKERS = 8  # number of threads for concurrent downloads

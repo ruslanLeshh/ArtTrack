@@ -8,11 +8,13 @@ from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 
 from algorithm import *
+from completely_legal_scraping import *
 
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.exc import OperationalError
+import os, shutil
 
 # Base model for SQLAlchemy
 Base = declarative_base()
@@ -88,8 +90,19 @@ app.add_middleware(
 @app.post("/images/scan")
 async def _():
     try:
-        # Scan logic (this should be implemented in the 'scan' function)
-        matches = scan()  # Assuming 'scan' function is defined somewhere
+        folder = 'images/internet-images'
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
+        
+        downloader = WikimediaImageDownloader()  
+        downloader.run()  
+        
+        matches = scan()  
         session = Session()
 
         for match in matches:
@@ -129,3 +142,40 @@ async def _():
 
         logging.error(f"Error during scan: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+# Define the /images/matches endpoint
+@app.get("/images/matches")
+async def get_image_matches(user_id: int = Header(...)):
+    try:
+        # Fetch all images for the user
+        images = db.query(Image).filter_by(user_id=user_id).all()
+
+        if not images:
+            raise HTTPException(status_code=404, detail="No images found for the user.")
+
+        # Retrieve the matches related to these images
+        matches = db.query(Match).join(Image).filter(
+            Match.image_id == Image.image_id, 
+            Image.user_id == user_id
+        ).all()
+
+        if not matches:
+            raise HTTPException(status_code=404, detail="No matches found.")
+
+        # Format the results for response
+        match_results = [
+            {
+                "match_id": match.match_id,
+                "similarity_score": match.similarity_score,
+                "new_image_filename": match.new_image_filename,
+                "matched_image_filename": match.matched_image_filename,
+            }
+            for match in matches
+        ]
+
+        return JSONResponse(content={"matches": match_results}, status_code=200)
+
+    except Exception as e:
+        # Log the error and raise an internal server error
+        logging.error(f"Error fetching matches: {str(e)}")
+        raise HTTPException(status_code=500, detail="An error occurred while fetching matches.")
