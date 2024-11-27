@@ -6,7 +6,7 @@ from PIL import Image
 import logging
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
-
+ 
 from algorithm import *
 
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, text
