@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
-
+ 
 const sequelize = require('./sequelize');
 const Users = require('./models/users');
 const Images = require('./models/images');
