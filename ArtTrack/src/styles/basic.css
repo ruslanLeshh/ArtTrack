@@ -17,10 +17,15 @@
   font-family: 'Mononoki', monospace;
   font-size: 1.5rem;
 }
+::-webkit-scrollbar {
+  width: 0;  /* Remove scrollbar space */
+  background: transparent;  /* Optional: just make scrollbar invisible */
+}
 /* Applying a global reset for box-sizing, margins, and paddings, and setting a default font and size */
 
 body {
     background-color: var(--basic_blue);
+    /* overflow-y: hidden; */
 }
 /* Setting a background color for the body */
 
@@ -54,7 +59,12 @@ body {
   flex-direction: column;
   gap: 0.2em;
   width: 30vw;
-  height: 100vh;
+  max-height: 110vh; 
+  overflow: hidden; 
+
+  scrollbar-color: var(--basic_blue) var(--basic_green);
+  scrollbar-width: thin;
+
 }
 /* Sidebar taking up 30% of the viewport width and full height */
 
@@ -66,9 +76,14 @@ body {
 .menu {
   padding: 0.1em;
   background-color: var(--basic_green);
-  height: 100%;
 }
 
+.menu-container{
+  word-Wrap: break-word;
+  white-Space: normal;
+  max-height: 100vh;
+  overflow: scroll; 
+}
 .canvas {
   display: flex;
   flex-wrap: wrap;
@@ -76,7 +91,7 @@ body {
   align-items: center;
   padding: 0.1em;
   background-color: var(--basic_green);
-  height: 100%;  
+  height: 100vh;  
   gap: 0.1em;
 }
 /* Canvas area styled for flexible item wrapping, centered alignment, and green background */

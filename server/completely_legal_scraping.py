@@ -245,16 +245,28 @@ class WikimediaImageDownloader:
                 else:
                     logging.warning(f"image {image.title} was not downloaded successfully")  # log if not downloaded
 
-    def save_metadata_to_csv(self):
+    def save_metadata_to_csv(self): # now it keeps all urls  
         """save all image metadata to a CSV file"""
         try:
-            with open(METADATA_FILE, 'w', newline='', encoding='utf-8') as csvfile:  # open CSV file
-                fieldnames = ['title', 'url', 'descriptionurl', 'user', 'license', 'attribution', 'local_path']  # define headers
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()  # write header row
+            existing_titles = set()  
+            if os.path.exists(METADATA_FILE):
+                with open(METADATA_FILE, 'r', newline='', encoding='utf-8') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    for row in reader:
+                        existing_titles.add(row['title']) 
 
-                for image in self.images:
-                    writer.writerow(asdict(image))  # write image metadata as a row
+            new_rows = []
+            for image in self.images:
+                if image.title not in existing_titles:  # check for new entries
+                    new_rows.append(asdict(image))
+
+            if new_rows:  # only append if there are new rows
+                with open(METADATA_FILE, 'a', newline='', encoding='utf-8') as csvfile:
+                    fieldnames = ['title', 'url', 'descriptionurl', 'user', 'license', 'attribution', 'local_path']
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    if os.path.getsize(METADATA_FILE) == 0:  # if the file is empty, write the header
+                        writer.writeheader()
+                    writer.writerows(new_rows)  # append new rows
 
             logging.info(f"metadata saved to {METADATA_FILE}")  # log successful save
         except Exception as e:

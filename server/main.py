@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.exc import OperationalError
+from threading import Thread
 import os, shutil
 
 # Base model for SQLAlchemy
@@ -61,14 +62,9 @@ try:
         print("Connection successful:", result.scalar())  # scalar() fetches the result
 except OperationalError as e:
     print("Connection failed:", str(e))
-# Create the Matches table if it doesn't exist
+# Create tables if needed
 Base.metadata.create_all(engine)
-
-# Create a session factory
 Session = sessionmaker(bind=engine)
-
-# from models.images import Images 
-
 
 app = FastAPI()
 origins = [
@@ -83,9 +79,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all headers (you can customize if needed)
 )
-# Define the upload directory
-# UPLOAD_DIR = Path("images/internet-images")
-# UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.post("/images/scan")
 async def _():
@@ -100,9 +93,11 @@ async def _():
                 print('Failed to delete %s. Reason: %s' % (file_path, e))
         
         downloader = WikimediaImageDownloader()  
-        downloader.run()  
-        
-        matches = scan()  
+        downloader_thread = Thread(target=downloader.run)
+        downloader_thread.start()
+        downloader_thread.join()  # Wait for the thread to finish!
+        matches = scan()
+    
         session = Session()
 
         for match in matches:
@@ -118,6 +113,14 @@ async def _():
     
                 logging.error(f"Image {user_filename} caused error")
                 return JSONResponse(content={"error": f"Image {new_filename} not found in Images table"}, status_code=404)
+
+            existing_match = session.query(Match).filter_by(
+                new_image_filename=new_filename,
+                matched_image_filename=user_filename
+            ).first()
+
+            if existing_match:
+                continue  # Skip if it already exists in db
 
             db_match = Match(
                 similarity_score=similarity,
@@ -142,40 +145,5 @@ async def _():
 
         logging.error(f"Error during scan: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-# Define the /images/matches endpoint
-@app.get("/images/matches")
-async def get_image_matches(user_id: int = Header(...)):
-    try:
-        # Fetch all images for the user
-        images = db.query(Image).filter_by(user_id=user_id).all()
-
-        if not images:
-            raise HTTPException(status_code=404, detail="No images found for the user.")
-
-        # Retrieve the matches related to these images
-        matches = db.query(Match).join(Image).filter(
-            Match.image_id == Image.image_id, 
-            Image.user_id == user_id
-        ).all()
-
-        if not matches:
-            raise HTTPException(status_code=404, detail="No matches found.")
-
-        # Format the results for response
-        match_results = [
-            {
-                "match_id": match.match_id,
-                "similarity_score": match.similarity_score,
-                "new_image_filename": match.new_image_filename,
-                "matched_image_filename": match.matched_image_filename,
-            }
-            for match in matches
-        ]
-
-        return JSONResponse(content={"matches": match_results}, status_code=200)
-
-    except Exception as e:
-        # Log the error and raise an internal server error
-        logging.error(f"Error fetching matches: {str(e)}")
-        raise HTTPException(status_code=500, detail="An error occurred while fetching matches.")
+    
+    

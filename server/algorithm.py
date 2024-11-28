@@ -11,6 +11,7 @@ from PIL import Image
 import faiss
 from typing import List
 import json
+
  
 # configuration
 USER_IMAGES_DIR = 'images/users-images'

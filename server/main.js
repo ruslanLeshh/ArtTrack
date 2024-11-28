@@ -12,8 +12,8 @@ const Matches = require('./models/matches');
 const multer = require('multer'); // For handling file uploads
 const path = require('path');
 const fs = require('fs');
-
-
+const { log } = require('console');
+const { Op } = require('sequelize');
 
 // Initialize express app
 const app = express();
@@ -126,8 +126,8 @@ app.post('/images/users-images', upload.single('image'), async (req, res) => {
 });
 
 app.get('/images/:userId', async (req, res) => {
-    const userId = req.headers['user-id'];
     try {
+        userId = req.params.userId;
         // Fetch images from the database associated with the user
         const images = await Images.findAll({
             where: { user_id: userId }  // Find images by user ID
@@ -142,47 +142,118 @@ app.get('/images/:userId', async (req, res) => {
     }
 });
 
-// app.get('/images/matches', async (req, res) => {
-//     const userId = req.headers['user-id'];
-//     try {
-//         const images = await Images.findAll({
-//             where: { user_id: userId },  // Filter Images by user_id
-//         });
+function formatFilename(filename) {
+    // Step 1: Replace underscores with spaces
+    let formattedFilename = filename.replace(/_/g, ' ');
 
-//         if (!images.length) {
-//             return res.status(404).json({ message: 'No images found for the user.' });
-//         }
+    // Step 2: Add 'File:' at the beginning
+    formattedFilename = 'File:' + formattedFilename;
 
-//         const matches = await Matches.findAll({
-//             include: [{
-//                 model: Images,  // Include the Images model to link Matches to Images
-//                 where: {
-//                     image_id: {
-//                         [Op.in]: images.map(image => image.id)  // Check if image_id matches one of the user's image IDs
-//                     }
-//                 }
-//             }]
-//         });
+    return formattedFilename;
+}
 
-//         if (!matches.length) {
-//             return res.status(404).json({ message: 'No matches found.' });
-//         }
+const Papa = require('papaparse');
 
-//         const matchResults = matches.map(match => ({
-//             match_id: match.match_id,
-//             similarity_score: match.similarity_score,
-//             new_image_filename: match.new_image_filename, // Get the filename from the included Image model
-//             matched_image_filename: match.matched_image_filename,
-//         }));
+async function getUrlFromCsv(filename) {
+    try {
+        const decodedFilename = decodeURIComponent(filename).trim();
+        filename = formatFilename(decodedFilename);
+        // console.log("filename:", filename);
+        
+        // Read the CSV file from the local file system
+        const csvFilePath = path.join(__dirname, 'absolutely_legal_metadata.csv');  
+        const csvText = fs.readFileSync(csvFilePath, 'utf-8');  
 
-//         // Step 4: Respond with the matches data including new_image_filename
-//         res.json({ matches: matchResults });
+        // Parse the CSV text using PapaParse
+        const parsedData = Papa.parse(csvText, {
+            header: true,         // Treat the first row as headers
+            dynamicTyping: true,  // Automatically convert number-like strings to numbers
+            skipEmptyLines: true, // Skip empty lines
+        });
 
-//     } catch (error) {
-//         console.error('Error fetching matches:', error);
-//         res.status(500).json({ error: 'An error occurred while fetching matches.' });
-//     }
-// });
+        // Find the row where the filename matches
+        const matchedRow = parsedData.data.find(row => row.title === filename);  // Assuming 'title' column holds filenames
+
+        if (matchedRow) {
+            // Return the URL if a match is found
+            return matchedRow.url;  
+        } else {
+            // If no matching file is found, throw an error
+            throw new Error(`Filename ${filename} not found in CSV.`);
+        }
+    } catch (error) {
+        console.error('Error fetching or parsing CSV file:', error);
+        throw error; 
+    }
+}
+
+
+app.get('/matches/:userId', async (req, res) => {
+    try {
+        userId = req.params.userId;
+        // console.log('User ID:', userId);
+
+        // Fetch images related to the user_id (Assuming Images model is defined)
+        const images = await Images.findAll({
+            where: { user_id: userId }  // Filter Images by user_id
+        });
+        // console.log("images:",images)
+        if (images.length === 0) {
+            console.log("NO IMAGES")
+            return res.status(404).json({ message: 'No images found for the user.' });
+        }
+
+        // Fetch matches for the images (Assuming Matches and Images models are related)
+        const matches = await Matches.findAll({
+            include: [{
+                model: Images,  // Include the Images model to link Matches to Images
+                where: {
+                    image_id: {
+                        [Op.in]: images.map(image =>  image.dataValues.image_id)  // Check if image_id matches one of the user's image IDs
+                    }
+                }
+            }]
+        });
+        // console.log("matches:",matches)
+        if (matches.length === 0) {
+            // console.log("NO MATCHES")
+            return res.status(404).json({ message: 'No matches found.' });
+        }
+
+        // Fetch image URLs asynchronously for each match
+        const matchResults = await Promise.all(matches.map(async (match) => {
+            try {
+                // Fetch the URL for each match's new_image_filename
+                const imageUrl = await getUrlFromCsv(match.new_image_filename);
+
+                return {
+                    match_id: match.match_id,
+                    similarity_score: match.similarity_score,
+                    new_image_filename: match.new_image_filename,  // Get the filename from the included Image model
+                    matched_image_filename: match.matched_image_filename,
+                    image_url: imageUrl
+                };
+            } catch (error) {
+                console.error(`Error fetching URL for ${match.new_image_filename}:`, error);
+                return {
+                    match_id: match.match_id,
+                    similarity_score: match.similarity_score,
+                    new_image_filename: match.new_image_filename,
+                    matched_image_filename: match.matched_image_filename,
+                    image_url: null,  // If there is an error fetching the URL, set it to null
+                };
+            }
+        }));
+
+        console.log("MATCHES", matchResults)
+        
+        res.json({ matches: matchResults }); // send results 
+
+    } catch (error) {
+        console.error('Error fetching matches:', error);
+        res.status(500).json({ error: 'An error occurred while fetching matches.' });
+    }
+});
 
 // Start the Express server
 app.listen(5000, () => console.log('Server running on http://localhost:5000'));

@@ -16,6 +16,24 @@ export default function Sidebar() {
         }
     }, []);
 
+    const fetchMatches = async () => {
+        try {
+            const response = await fetch(`http://localhost:5000/matches/${UserId}`, {
+                method: "GET"
+            });
+            if (response.ok) {
+                const data = await response.json();
+                console.log("MATCHES FOUND",data)
+
+                setMatches(data.matches); 
+            } else {
+                console.error('Error fetching matches');
+            }
+        } catch (error) {
+            console.error("Error fetching matches:", error);
+        }
+    };
+
     const handleScan = async (e) => {
         if (!UserId) {
             console.error("User ID not found");
@@ -26,7 +44,6 @@ export default function Sidebar() {
         try {
             const response = await fetch("http://localhost:8000/images/scan", {
                 method: 'POST'
-                // headers: { 'user-id': UserId },
             });
     
             if (!response.ok) {
@@ -39,6 +56,7 @@ export default function Sidebar() {
                 localStorage.setItem('lastScanTime', formattedTime);
 
                 setLastScan(formattedTime);
+                fetchMatches();
             }
 
         } catch (error) {
@@ -47,37 +65,12 @@ export default function Sidebar() {
         }
     }
 
-
+    
     useEffect(() => {
         if (!UserId) {
             console.error("User ID not found");
-            alert("Please log in to view images");
             return;
         }
-        // Fetch all images associated with the user
-        const fetchMatches = async () => {
-            try {
-                const response = await fetch(`http://localhost:8000/images/matches`, {
-                    method: "GET",
-                    headers: { "user-id": UserId },
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    // alert('everything is fine!')
-                    console.log("MATCHES FOUND",data)
-
-                    setMatches(data.matches);  // Store the matches in state
-                } else {
-                    console.error('Error fetching matches');
-                    alert('Error fetching matches');
-                }
-            } catch (error) {
-                console.error("Error fetching matches:", error);
-                alert('Error fetching matches');
-            }
-        };
-
         fetchMatches();
     }, []);
 
@@ -86,23 +79,28 @@ export default function Sidebar() {
         <div className='sidebar-container'>
             <div className='hdr'>last scan: {lastScan}</div>
             <div className='menu'>
-                <div>
+                <div style={{ height: "100%"}}>
                 <p>
                 <button className="scan-btn" onClick={handleScan}>Scan</button>
                 matches:
                 </p>
-                <p style={{ wordWrap: "break-word", whiteSpace: "normal" }}>
-                    {matches && matches.length > 0 ? matches.map((match, index) => (
-                        <div key={index}>
-                        <p>Similarity: {match.similarity_score}</p>
-                        <p>Matched Image: {match.matched_image_filename}</p>
-                        <p>Scraped Image Filename: {match.new_image_filename}</p>
-                        <button className="button2" style={{ display: "flex"}} >Submit a takedown request</button>
-                        </div>
-                    )) : "No matches found"}
-                    </p>
+                    <div className="menu-container">
+                        {matches && matches.length > 0 ? matches.map((match, index) => (
+                            <div key={index}>
+                            
+                            <div style={{backgroundColor: "rgba(255, 0, 0, 0.4)"}}><p style={{ color: "rgba(255, 255, 255, 0.2 )", margin: "0 auto", width: "0%", background_color: "red"}}><strong>{index + 1}</strong></p></div>
+                            <p>Matched Image: {match.matched_image_filename}</p><br/>
+                            <p>Scraped Image Filename: {match.new_image_filename}</p><br/>
+                            <p>Similarity: {match.similarity_score}</p><br/>
+                            {match.image_url ? (
+                                <p>Image URL: <a href={match.image_url} target="_blank" rel="noopener noreferrer">{match.image_url}</a></p>
+                            ) : null}
+                            <button className="button2" style={{ display: "flex"}} >Submit a takedown request</button><br/>
+                            </div>
+                        )) : "No matches found"}
+                        <br/><br/>
+                    </div>
                 </div>
-                
             </div>
         </div>
     );
